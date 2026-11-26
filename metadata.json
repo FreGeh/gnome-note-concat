@@ -1,0 +1,10 @@
+{
+  "uuid": "note-concat@fregeh",
+  "name": "Note Concat",
+  "description": "Capture multiline Markdown from the top panel and append it to a local file.",
+  "shell-version": [
+    "50"
+  ],
+  "settings-schema": "org.gnome.shell.extensions.note-concat",
+  "url": "https://github.com/FreGeh/gnome-note-concat"
+}

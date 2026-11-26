@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.note-concat" path="/org/gnome/shell/extensions/note-concat/">
+    <key name="destination" type="s">
+      <default>'~/Notes/inbox.md'</default>
+      <summary>Destination Markdown file</summary>
+      <description>Absolute local path or a path starting with ~/.</description>
+    </key>
+  </schema>
+</schemalist>
