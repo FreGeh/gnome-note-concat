@@ -1,5 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
 import Pango from 'gi://Pango';
 import St from 'gi://St';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
@@ -8,6 +11,22 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import {appendNote} from './append.js';
+
+const NoteEntry = GObject.registerClass(
+class NoteEntry extends St.Entry {
+    vfunc_allocate(box) {
+        super.vfunc_allocate(box);
+
+        // St.Entry centers its text vertically by default.
+        const text = this.clutter_text;
+        const textBox = text.get_allocation_box();
+        const top = this.get_theme_node().get_padding(St.Side.TOP);
+        const height = textBox.y2 - textBox.y1;
+        textBox.y1 = top;
+        textBox.y2 = top + height;
+        text.allocate(textBox);
+    }
+});
 
 export default class NoteConcat extends Extension {
     enable() {
@@ -26,7 +45,6 @@ export default class NoteConcat extends Extension {
         menu.addMenuItem(row);
 
         this._scroll = new St.ScrollView({
-            style_class: 'note-concat-scroll',
             x_expand: true,
             overlay_scrollbars: true,
             hscrollbar_policy: St.PolicyType.NEVER,
@@ -36,8 +54,7 @@ export default class NoteConcat extends Extension {
         this._scroll.set_child(content);
         layout.add_child(this._scroll);
 
-        this._entry = new St.Entry({
-            style_class: 'note-concat-entry',
+        this._entry = new NoteEntry({
             accessible_name: 'Note',
             can_focus: true,
             x_expand: true,
@@ -65,7 +82,7 @@ export default class NoteConcat extends Extension {
         controls.add_child(preferences);
         controls.add_child(new St.Widget({x_expand: true}));
         this._saveButton = new St.Button({label: 'Save', style_class: 'button', can_focus: true});
-        this._saveButton.connect('clicked', () => menu.close());
+        this._saveButton.connect('clicked', () => this._closeAndSave());
         controls.add_child(this._saveButton);
         layout.add_child(controls);
 
@@ -82,24 +99,49 @@ export default class NoteConcat extends Extension {
             const key = event.get_key_symbol();
             if ((key === Clutter.KEY_Return || key === Clutter.KEY_KP_Enter) &&
                 (event.get_state() & Clutter.ModifierType.CONTROL_MASK)) {
-                menu.close();
+                this._closeAndSave();
                 return Clutter.EVENT_STOP;
             }
             return Clutter.EVENT_PROPAGATE;
         });
 
+        // Let the panel's menu manager take its modal grab before focusing the editor.
+        Main.panel.addToStatusArea(this.uuid, this._button);
         this._menuSignal = menu.connect('open-state-changed', (_menu, open) => {
             if (open) {
                 this._renderState();
                 if (!this._saving)
                     this._entry.grab_key_focus();
                 this._queueLayout();
-            } else {
+            } else if (this._settings.get_boolean('save-on-close')) {
                 this._save();
             }
         });
-        Main.panel.addToStatusArea(this.uuid, this._button);
+        this._settingsSignal = this._settings.connect('changed', (_settings, key) => {
+            if (key === 'font-family' || key === 'font-size' || key === 'editor-height')
+                this._updateEditorStyle();
+        });
+        this._updateEditorStyle();
         this._renderState();
+    }
+
+    _updateEditorStyle() {
+        const family = this._settings.get_string('font-family');
+        let style = `font-size: ${this._settings.get_int('font-size')}pt;`;
+        if (family) {
+            const escaped = family.replace(/["\\\u0000-\u001f\u007f]/g, char =>
+                `\\${char.codePointAt(0).toString(16)} `);
+            style += ` font-family: "${escaped}";`;
+        }
+        this._entry.set_style(style);
+        this._scroll.set_style(`height: ${this._settings.get_int('editor-height')}px;`);
+        this._queueLayout();
+    }
+
+    _closeAndSave() {
+        this._button.menu.close();
+        if (!this._settings.get_boolean('save-on-close'))
+            this._save();
     }
 
     _queueLayout() {
@@ -161,8 +203,6 @@ export default class NoteConcat extends Extension {
             return;
         }
 
-        // Snapshot the draft before closing. A rapid reopen cannot submit it
-        // twice or edit it while the asynchronous append is in progress.
         this._draft = note;
         this._saving = true;
         this._error = '';
@@ -188,10 +228,15 @@ export default class NoteConcat extends Extension {
     }
 
     disable() {
+        this._settings.disconnect(this._settingsSignal);
         if (this._button) {
             this._button.menu.disconnect(this._menuSignal);
-            if (this._button.menu.isOpen)
-                this._save();
+            if (!this._saving) {
+                if (this._button.menu.isOpen && this._settings.get_boolean('save-on-close'))
+                    this._save();
+                else
+                    this._draft = this._entry.get_text();
+            }
             this._button.destroy();
         }
         if (this._layoutSource)

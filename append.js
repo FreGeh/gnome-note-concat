@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
@@ -52,8 +54,6 @@ export async function appendNote(destination, note) {
     await ensureDirectory(file.get_parent());
     const stream = await call(file, 'append_to', Gio.FileCreateFlags.PRIVATE, GLib.PRIORITY_DEFAULT, null);
 
-    // Append rather than replacing or loading the entire file. Preserve the
-    // user's exact text; a blank line separates it from existing contents.
     let attemptedWrite = false;
     try {
         const info = await call(stream, 'query_info', 'standard::size', GLib.PRIORITY_DEFAULT, null);

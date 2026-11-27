@@ -1,10 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <schemalist>
   <schema id="org.gnome.shell.extensions.note-concat" path="/org/gnome/shell/extensions/note-concat/">
     <key name="destination" type="s">
       <default>'~/Notes/inbox.md'</default>
       <summary>Destination Markdown file</summary>
       <description>Absolute local path or a path starting with ~/.</description>
+    </key>
+    <key name="font-family" type="s">
+      <default>''</default>
+      <summary>Editor font family</summary>
+      <description>An empty string uses the GNOME Shell theme font.</description>
+    </key>
+    <key name="font-size" type="i">
+      <range min="8" max="32"/>
+      <default>11</default>
+      <summary>Editor font size in points</summary>
+    </key>
+    <key name="editor-height" type="i">
+      <range min="120" max="480"/>
+      <default>180</default>
+      <summary>Editor height in pixels</summary>
+    </key>
+    <key name="save-on-close" type="b">
+      <default>true</default>
+      <summary>Save notes automatically when the popup closes</summary>
     </key>
   </schema>
 </schemalist>
