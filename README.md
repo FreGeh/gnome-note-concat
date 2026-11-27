@@ -51,8 +51,19 @@ Use the gear button to configure:
 
 - **Editor:** Font and writing area size.
 - **Destination:** Markdown file to append notes to.
+- **Include timestamps (on by default):** Prefix each note with its local creation time (`YYYY-MM-DD HH:MM`), formatted as an italic Markdown line.
 - **Save on popup close (off by default):** Append notes when dismissing the popup. Otherwise, keep the draft.
 - **Save on session end (on by default):** Attempt to save when locking, suspending or logging out.
+
+For example, with timestamps enabled the saved Markdown looks like:
+
+```markdown
+*2026-11-27 16:58*
+
+Remember to read the paper later.
+```
+
+The timestamp records when the note first contains non-whitespace text and is preserved when recovering a draft. Turning the setting off saves notes as plain text without the timestamp. Existing notes are not changed.
 
 Unsaved drafts are stored privately on your device. If a save could not be confirmed, check the destination before retrying.
 
