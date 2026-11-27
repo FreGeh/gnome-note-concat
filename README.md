@@ -17,7 +17,19 @@ Note Concat is inspired by **distractibility delay**, a technique used in cognit
 
 ### Manual installation
 
-To install from source, run the following commands in the repository directory:
+[Download the latest release ZIP](https://github.com/FreGeh/gnome-note-concat/releases/latest/download/note-concat@fregeh.shell-extension.zip) or browse [all releases](https://github.com/FreGeh/gnome-note-concat/releases).
+
+Install the downloaded ZIP from its directory:
+
+```sh
+gnome-extensions install --force note-concat@fregeh.shell-extension.zip
+```
+
+Enable **Note Concat** in Extensions. If it does not appear, log out and back in first.
+
+### Build from source
+
+Alternatively, run the following commands in the repository directory:
 
 ```sh
 gnome-extensions pack --force --extra-source=append.js --extra-source=LICENSE .
