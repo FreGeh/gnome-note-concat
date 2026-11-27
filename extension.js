@@ -38,9 +38,15 @@ export default class NoteConcat extends Extension {
         this._checkpointError = false;
         this._shuttingDown = false;
         if (!this._pendingSave) {
+            this._createdAt = null;
             try {
                 const state = readDraft(draftPath());
                 this._draft = state.note;
+                if (state.note.trim()) {
+                    this._createdAt = typeof state.createdAt === 'string' &&
+                        /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(state.createdAt)
+                        ? state.createdAt : this._localTimestamp();
+                }
                 this._error = state.pending
                     ? 'Previous save could not be confirmed. Check the destination before retrying.'
                     : (state.error ?? '');
@@ -48,6 +54,8 @@ export default class NoteConcat extends Extension {
             } catch (error) {
                 this._error = 'Could not recover the saved draft: ' + error.message;
             }
+        } else {
+            this._createdAt = this._pendingSave.createdAt;
         }
         this._button = new PanelMenu.Button(0, 'Note Concat');
         this._button.add_child(new St.Icon({
@@ -111,8 +119,10 @@ export default class NoteConcat extends Extension {
 
         text.connect('text-changed', () => {
             this._queueLayout();
-            if (!this._pendingSave)
+            if (!this._pendingSave) {
+                this._updateTimestamp();
                 this._queueCheckpoint();
+            }
         });
         text.connect('notify::cursor-position', () => this._queueLayout());
         this._scroll.connect('notify::width', () => this._queueLayout());
@@ -169,6 +179,22 @@ export default class NoteConcat extends Extension {
             this._save(true);
     }
 
+    _localTimestamp() {
+        return GLib.DateTime.new_now_local().format('%Y-%m-%d %H:%M');
+    }
+
+    _updateTimestamp() {
+        if (this._entry.get_text().trim())
+            this._createdAt ??= this._localTimestamp();
+        else
+            this._createdAt = null;
+    }
+
+    _noteForSave(note) {
+        return this._settings.get_boolean('include-timestamps')
+            ? `*${this._createdAt ?? this._localTimestamp()}*\n\n${note}` : note;
+    }
+
     _queueCheckpoint() {
         if (this._checkpointSource)
             return;
@@ -185,7 +211,10 @@ export default class NoteConcat extends Extension {
             GLib.Source.remove(this._checkpointSource);
         this._checkpointSource = 0;
         try {
-            writeDraft(draftPath(), state);
+            writeDraft(draftPath(), {
+                ...state,
+                createdAt: state.note.trim() ? this._createdAt : null,
+            });
             this._checkpointError = false;
             return true;
         } catch (error) {
@@ -217,10 +246,11 @@ export default class NoteConcat extends Extension {
             this._checkpoint();
             return;
         }
+        this._updateTimestamp();
         if (!this._checkpoint({note, pending: true}))
             return;
         try {
-            appendNoteOnShutdown(this._settings.get_string('destination'), note);
+            appendNoteOnShutdown(this._settings.get_string('destination'), this._noteForSave(note));
             this._checkpoint({note: ''});
         } catch (error) {
             this._checkpoint({note, error: error.message, autoSave: false});
@@ -313,6 +343,7 @@ export default class NoteConcat extends Extension {
         if (!note.trim()) {
             this._entry.set_text('');
             this._draft = '';
+            this._createdAt = null;
             this._error = '';
             this._autoSave = false;
             this._checkpoint();
@@ -321,6 +352,7 @@ export default class NoteConcat extends Extension {
         }
 
         this._draft = note;
+        this._updateTimestamp();
         this._error = '';
         this._autoSave = false;
         if (!this._checkpoint({note, pending: true})) {
@@ -330,11 +362,11 @@ export default class NoteConcat extends Extension {
         }
         const destination = this._settings.get_string('destination');
         const cancellable = new Gio.Cancellable();
-        const result = appendNote(destination, note, cancellable).then(
+        const result = appendNote(destination, this._noteForSave(note), cancellable).then(
             () => null,
             error => error
         );
-        this._pendingSave = {cancellable, result, note, sessionSave};
+        this._pendingSave = {cancellable, result, note, sessionSave, createdAt: this._createdAt};
         this._renderState();
         this._finishSave(this._pendingSave);
     }
@@ -362,11 +394,13 @@ export default class NoteConcat extends Extension {
 
         this._pendingSave = null;
         this._draft = state.note;
+        this._createdAt = error ? operation.createdAt : null;
         this._error = state.error;
         this._autoSave = state.autoSave;
         this._checkpoint(state);
         if (this._activation === null) {
             this._draft = null;
+            this._createdAt = null;
             this._error = null;
             this._autoSave = false;
             return;
@@ -421,6 +455,7 @@ export default class NoteConcat extends Extension {
         this._shutdownSignal = 0;
         this._loginManager = null;
         this._draft = null;
+        this._createdAt = null;
         this._error = null;
         this._autoSave = false;
         this._button = null;
