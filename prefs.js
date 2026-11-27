@@ -55,6 +55,12 @@ export default class NoteConcatPreferences extends ExtensionPreferences {
         const row = new Adw.EntryRow({title: 'Markdown file'});
         settings.bind('destination', row, 'text', Gio.SettingsBindFlags.DEFAULT);
         group.add(row);
+        const includeTimestamps = new Adw.SwitchRow({
+            title: 'Include timestamps',
+            subtitle: 'Prefix each note with its local creation time (YYYY-MM-DD HH:MM).',
+        });
+        settings.bind('include-timestamps', includeTimestamps, 'active', Gio.SettingsBindFlags.DEFAULT);
+        group.add(includeTimestamps);
         const saveOnClose = new Adw.SwitchRow({
             title: 'Save on popup close',
             subtitle: 'Append the note whenever the popup is dismissed.',
