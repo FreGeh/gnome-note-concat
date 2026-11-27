@@ -36,6 +36,7 @@ export default class NoteConcat extends Extension {
         this._activation = Symbol();
         this._settings = this.getSettings();
         this._checkpointError = false;
+        this._shuttingDown = false;
         if (!this._pendingSave) {
             try {
                 const state = readDraft(draftPath());
@@ -196,11 +197,14 @@ export default class NoteConcat extends Extension {
     }
 
     _saveForSession() {
+        if (this._shuttingDown)
+            return;
         if (this._settings.get_boolean('save-on-session-end') && !this._error)
             this._save(true);
     }
 
     _saveOnShutdown() {
+        this._shuttingDown = true;
         if (this._pendingSave)
             return;
         if (!this._settings.get_boolean('save-on-session-end') || this._error) {
@@ -386,7 +390,7 @@ export default class NoteConcat extends Extension {
             GLib.Source.remove(this._layoutSource);
         this._layoutSource = 0;
         const locking = Main.sessionMode.isLocked;
-        if (!this._pendingSave) {
+        if (!this._pendingSave && !this._shuttingDown) {
             this._autoSave = Boolean(locking && !this._error &&
                 this._settings.get_boolean('save-on-session-end'));
             this._checkpoint();
