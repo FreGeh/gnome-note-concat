@@ -47,9 +47,14 @@ Enable **Note Concat** in Extensions. If it does not appear, log out and back in
 
 Click the pencil icon in the top panel to write a note. **Save** or **Ctrl+Enter** appends it to `~/Notes/inbox.md` by default (I personally use a note in my Obsidian Vault).
 
-The gear button opens settings for the destination, font, editor size and automatic saving. By default, dismissing the popup keeps the draft, while **Save on session end** attempts to append it when locking, suspending or logging out. Enable **Save on popup close** if you prefer to append on every dismissal.
+Use the gear button to configure:
 
-Unsaved drafts are kept privately on your device for recovery after an interrupted session. If a previous save could not be confirmed, check the destination before retrying.
+- **Editor:** Font and writing area size.
+- **Destination:** Markdown file to append notes to.
+- **Save on popup close (off by default):** Append notes when dismissing the popup. Otherwise, keep the draft.
+- **Save on session end (on by default):** Attempt to save when locking, suspending or logging out.
+
+Unsaved drafts are stored privately on your device. If a save could not be confirmed, check the destination before retrying.
 
 ## License
 
