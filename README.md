@@ -1,24 +1,40 @@
 # Note Concat
 
-A GNOME Shell 50 extension that appends Markdown notes from the top panel to a local file.
+A minimal GNOME Shell 50 extension for capturing thoughts and appending them to a local Markdown file without losing focus on your current task.
 
-Click the pencil icon to write a note. **Save** or **Ctrl+Enter** appends it to `~/Notes/inbox.md` by default. The gear button opens settings for the destination, font, editor size, and automatic saving. If you turn off **Save on close**, dismissing the popup keeps the draft in memory.
+## Motivation
 
-GNOME Shell can disable Note Concat while the screen is locked. The draft and any save warning stay in memory during lock and unlock. Disabling cancels an active save. On re-enable, the editor waits for its outcome before accepting edits. Follow the on-screen message before retrying an interrupted save with **Save**.
+Note Concat is inspired by **distractibility delay**, a technique used in cognitive behavioural therapy for ADHD [[1]](https://pmc.ncbi.nlm.nih.gov/articles/PMC3874265/), and research on **cognitive offloading** [[2]](https://doi.org/10.1016/j.tics.2016.07.002).
 
-## Build and install
+> Write down distracting thoughts instead of acting on them. Return to your current task and review them later.
+
+## Installation
+
+**GNOME Extensions:** Link coming soon.
+<!-- Replace with the Note Concat extension page once published. -->
+
+### Manual installation
+
+To install from source, run the following commands in the repository directory:
 
 ```sh
 gnome-extensions pack --force --extra-source=append.js --extra-source=LICENSE .
 gnome-extensions install --force note-concat@fregeh.shell-extension.zip
 ```
 
-Log out and back in, then enable **Note Concat** in Extensions.
+Enable **Note Concat** in Extensions. If it does not appear, log out and back in first.
 
-## Tests
+## Usage
 
-Run `gjs -m tests/append.js` and `glib-compile-schemas --strict --dry-run schemas`. See [tests/manual.md](tests/manual.md) for GNOME Shell checks.
+Click the pencil icon in the top panel to write a note. **Save** or **Ctrl+Enter** appends it to `~/Notes/inbox.md` by default.
+
+The gear button opens settings for the destination, font, editor size and automatic saving. If **Save on close** is disabled, dismissing the popup keeps the draft in memory until you save it.
 
 ## License
 
 GPL-2.0-or-later. See [LICENSE](LICENSE).
+
+## References
+
+1. Sprich et al. (2010). [Description and Demonstration of CBT for ADHD in Adults](https://pmc.ncbi.nlm.nih.gov/articles/PMC3874265/). *Cognitive and Behavioral Practice*, 17(1), 9–15.
+2. Risko & Gilbert (2016). [Cognitive Offloading](https://doi.org/10.1016/j.tics.2016.07.002). *Trends in Cognitive Sciences*, 20(9), 676–688.
