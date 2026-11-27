@@ -55,3 +55,11 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" note-concat@fregeh.shell-extension.zip \
             --verify-tag --generate-notes
+
+      - name: Publish v1.1
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.head_commit.message == 'Release Note Concat v1.1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v1.1 note-concat@fregeh.shell-extension.zip \
+            --target "$GITHUB_SHA" --generate-notes

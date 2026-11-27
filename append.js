@@ -87,3 +87,77 @@ export async function appendNote(destination, note, cancellable = null) {
     }
     return true;
 }
+
+// Checkpoint drafts separately from the user's append-only notes file.
+export function draftPath() {
+    return GLib.build_filenamev([GLib.get_user_state_dir(), 'note-concat', 'draft.json']);
+}
+
+export function readDraft(path) {
+    const file = Gio.File.new_for_path(path);
+    try {
+        const [, bytes] = file.load_contents(null);
+        const state = JSON.parse(new TextDecoder().decode(bytes));
+        if (typeof state.note !== 'string')
+            throw new Error('Invalid saved draft.');
+        return state;
+    } catch (error) {
+        if (isError(error, Gio.IOErrorEnum.NOT_FOUND))
+            return {note: '', error: '', autoSave: false};
+        throw error;
+    }
+}
+
+export function writeDraft(path, state) {
+    const file = Gio.File.new_for_path(path);
+    if (!state.note.trim() && !state.error) {
+        try {
+            file.delete(null);
+        } catch (error) {
+            if (!isError(error, Gio.IOErrorEnum.NOT_FOUND))
+                throw error;
+        }
+        return;
+    }
+
+    if (GLib.mkdir_with_parents(file.get_parent().get_path(), 0o700) !== 0)
+        throw new Error('Could not create the private draft directory.');
+    const bytes = new TextEncoder().encode(JSON.stringify(state));
+    file.replace_contents(bytes, null, false,
+        Gio.FileCreateFlags.PRIVATE | Gio.FileCreateFlags.REPLACE_DESTINATION, null);
+}
+
+// The Shell shutdown signal cannot await async work. Only use this at
+// shutdown; interactive saves continue to use the asynchronous implementation.
+export function appendNoteOnShutdown(destination, note) {
+    if (!note.trim())
+        return false;
+    const file = Gio.File.new_for_path(resolveDestination(destination));
+    try {
+        file.get_parent().make_directory_with_parents(null);
+    } catch (error) {
+        if (!isError(error, Gio.IOErrorEnum.EXISTS))
+            throw error;
+    }
+    const stream = file.append_to(Gio.FileCreateFlags.PRIVATE, null);
+    let attemptedWrite = false;
+    try {
+        const prefix = stream.query_info('standard::size', null).get_size() > 0 ? '\n\n' : '';
+        const bytes = new TextEncoder().encode(prefix + note);
+        attemptedWrite = true;
+        const [ok, written] = stream.write_all(bytes, null);
+        if (!ok || written !== bytes.length)
+            throw new Error('Incomplete append.');
+        stream.close(null);
+    } catch (error) {
+        try {
+            stream.close(null);
+        } catch {
+            // Preserve the original error.
+        }
+        if (attemptedWrite)
+            throw new Error('Append may be incomplete. Check the destination before retrying.');
+        throw error;
+    }
+    return true;
+}

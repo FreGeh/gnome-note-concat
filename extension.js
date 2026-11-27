@@ -9,10 +9,11 @@ import St from 'gi://St';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {PopupAnimation} from 'resource:///org/gnome/shell/ui/boxpointer.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as LoginManager from 'resource:///org/gnome/shell/misc/loginManager.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
-import {appendNote} from './append.js';
+import {appendNote, appendNoteOnShutdown, draftPath, readDraft, writeDraft} from './append.js';
 
 const NoteEntry = GObject.registerClass(
 class NoteEntry extends St.Entry {
@@ -34,6 +35,19 @@ export default class NoteConcat extends Extension {
     enable() {
         this._activation = Symbol();
         this._settings = this.getSettings();
+        this._checkpointError = false;
+        if (!this._pendingSave) {
+            try {
+                const state = readDraft(draftPath());
+                this._draft = state.note;
+                this._error = state.pending
+                    ? 'Previous save could not be confirmed. Check the destination before retrying.'
+                    : (state.error ?? '');
+                this._autoSave = !state.pending && !this._error && Boolean(state.autoSave);
+            } catch (error) {
+                this._error = 'Could not recover the saved draft: ' + error.message;
+            }
+        }
         this._button = new PanelMenu.Button(0, 'Note Concat');
         this._button.add_child(new St.Icon({
             icon_name: 'document-edit-symbolic',
@@ -60,7 +74,7 @@ export default class NoteConcat extends Extension {
             accessible_name: 'Note',
             can_focus: true,
             x_expand: true,
-            text: this._draft ?? '',
+            text: this._pendingSave?.note ?? this._draft ?? '',
         });
         content.add_child(this._entry);
         const text = this._entry.clutter_text;
@@ -94,7 +108,11 @@ export default class NoteConcat extends Extension {
         this._status.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
         layout.add_child(this._status);
 
-        text.connect('text-changed', () => this._queueLayout());
+        text.connect('text-changed', () => {
+            this._queueLayout();
+            if (!this._pendingSave)
+                this._queueCheckpoint();
+        });
         text.connect('notify::cursor-position', () => this._queueLayout());
         this._scroll.connect('notify::width', () => this._queueLayout());
         this._scroll.connect('notify::height', () => this._queueLayout());
@@ -117,8 +135,11 @@ export default class NoteConcat extends Extension {
                 if (!this._pendingSave)
                     this._entry.grab_key_focus();
                 this._queueLayout();
-            } else if (!this._error && this._settings.get_boolean('save-on-close')) {
-                this._save();
+            } else if (!this._pendingSave) {
+                if (!this._error && this._settings.get_boolean('save-on-close'))
+                    this._save();
+                else
+                    this._checkpoint();
             }
         });
         this._settingsSignal = this._settings.connect('changed', (_settings, key) => {
@@ -128,11 +149,78 @@ export default class NoteConcat extends Extension {
                 this._updateEditorSize();
         });
         this._monitorsSignal = Main.layoutManager.connect('monitors-changed', () => this._updateEditorSize());
+        this._sessionSignal = Main.sessionMode.connect('updated', () => {
+            if (Main.sessionMode.isLocked)
+                this._saveForSession();
+        });
+        this._loginManager = LoginManager.getLoginManager();
+        this._sleepSignal = this._loginManager.connect('prepare-for-sleep', (_manager, sleeping) => {
+            if (sleeping)
+                this._saveForSession();
+        });
+        this._shutdownSignal = global.connect('shutdown', () => this._saveOnShutdown());
         this._updateEditorStyle();
         this._updateEditorSize();
         this._renderState();
         if (this._pendingSave)
             this._finishSave(this._pendingSave);
+        else if (this._autoSave && this._settings.get_boolean('save-on-session-end'))
+            this._save(true);
+    }
+
+    _queueCheckpoint() {
+        if (this._checkpointSource)
+            return;
+        this._checkpointSource = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, () => {
+            this._checkpointSource = 0;
+            if (!this._pendingSave)
+                this._checkpoint();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _checkpoint(state = {note: this._entry.get_text(), error: this._error ?? '', autoSave: Boolean(this._autoSave)}) {
+        if (this._checkpointSource)
+            GLib.Source.remove(this._checkpointSource);
+        this._checkpointSource = 0;
+        try {
+            writeDraft(draftPath(), state);
+            this._checkpointError = false;
+            return true;
+        } catch (error) {
+            if (!this._checkpointError)
+                Main.notifyError('Note Concat: could not preserve draft', error.message);
+            this._checkpointError = true;
+            return false;
+        }
+    }
+
+    _saveForSession() {
+        if (this._settings.get_boolean('save-on-session-end') && !this._error)
+            this._save(true);
+    }
+
+    _saveOnShutdown() {
+        if (this._pendingSave)
+            return;
+        if (!this._settings.get_boolean('save-on-session-end') || this._error) {
+            this._checkpoint();
+            return;
+        }
+
+        const note = this._entry.get_text();
+        if (!note.trim()) {
+            this._checkpoint();
+            return;
+        }
+        if (!this._checkpoint({note, pending: true}))
+            return;
+        try {
+            appendNoteOnShutdown(this._settings.get_string('destination'), note);
+            this._checkpoint({note: ''});
+        } catch (error) {
+            this._checkpoint({note, error: error.message, autoSave: false});
+        }
     }
 
     _updateEditorStyle() {
@@ -214,7 +302,7 @@ export default class NoteConcat extends Extension {
         this._status.visible = Boolean(this._status.text);
     }
 
-    _save() {
+    _save(sessionSave = false) {
         if (this._pendingSave)
             return;
         const note = this._entry.get_text();
@@ -222,19 +310,27 @@ export default class NoteConcat extends Extension {
             this._entry.set_text('');
             this._draft = '';
             this._error = '';
+            this._autoSave = false;
+            this._checkpoint();
             this._renderState();
             return;
         }
 
         this._draft = note;
         this._error = '';
+        this._autoSave = false;
+        if (!this._checkpoint({note, pending: true})) {
+            this._error = 'Could not preserve draft before saving. Use Save to retry.';
+            this._renderState();
+            return;
+        }
         const destination = this._settings.get_string('destination');
         const cancellable = new Gio.Cancellable();
         const result = appendNote(destination, note, cancellable).then(
             () => null,
             error => error
         );
-        this._pendingSave = {cancellable, result};
+        this._pendingSave = {cancellable, result, note, sessionSave};
         this._renderState();
         this._finishSave(this._pendingSave);
     }
@@ -242,48 +338,87 @@ export default class NoteConcat extends Extension {
     async _finishSave(operation) {
         const activation = this._activation;
         const error = await operation.result;
-        if (this._activation !== activation)
+        if (this._pendingSave !== operation)
+            return;
+        // A new activation has its own completion handler. If disabled, only
+        // settle the private checkpoint, never access destroyed UI objects.
+        if (this._activation !== activation && this._activation !== null)
             return;
 
-        this._pendingSave = null;
-        if (!error) {
-            this._draft = '';
-            this._entry.set_text('');
-        } else {
-            if (error.matches?.(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED)) {
-                this._error = 'Save interrupted. Use Save to retry.';
-            } else {
-                this._error = error.message || 'Could not save note.';
-                Main.notifyError('Note Concat: could not confirm save', this._error);
+        const cancelled = error?.matches?.(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED);
+        const state = error
+            ? {
+                note: operation.note,
+                error: cancelled
+                    ? (operation.sessionSave ? '' : 'Save interrupted. Use Save to retry.')
+                    : (error.message || 'Could not save note.'),
+                autoSave: Boolean(cancelled && operation.sessionSave),
             }
+            : {note: '', error: '', autoSave: false};
+
+        this._pendingSave = null;
+        this._draft = state.note;
+        this._error = state.error;
+        this._autoSave = state.autoSave;
+        this._checkpoint(state);
+        if (this._activation === null) {
+            this._draft = null;
+            this._error = null;
+            this._autoSave = false;
+            return;
         }
+
+        if (!error)
+            this._entry.set_text('');
+        else if (!cancelled)
+            Main.notifyError('Note Concat: could not confirm save', this._error);
         this._renderState();
         if (this._button.menu.isOpen) {
             this._entry.grab_key_focus();
             this._queueLayout();
         }
+        if (this._autoSave && this._settings.get_boolean('save-on-session-end'))
+            this._save(true);
     }
 
     disable() {
         if (this._layoutSource)
             GLib.Source.remove(this._layoutSource);
         this._layoutSource = 0;
+        const locking = Main.sessionMode.isLocked;
+        if (!this._pendingSave) {
+            this._autoSave = Boolean(locking && !this._error &&
+                this._settings.get_boolean('save-on-session-end'));
+            this._checkpoint();
+        }
         this._activation = null;
         if (this._pendingSave) {
-            this._pendingSave.cancellable?.cancel();
-            // Keep only the result needed to recover the draft on re-enable.
-            this._pendingSave.cancellable = null;
+            // A session save already started before lock may finish without
+            // touching the UI; cancel all other operations on disable.
+            if (!locking || !this._pendingSave.sessionSave)
+                this._pendingSave.cancellable?.cancel();
         }
+        if (this._checkpointSource)
+            GLib.Source.remove(this._checkpointSource);
+        this._checkpointSource = 0;
         this._settings.disconnect(this._settingsSignal);
         Main.layoutManager.disconnect(this._monitorsSignal);
+        Main.sessionMode.disconnect(this._sessionSignal);
+        this._loginManager.disconnect(this._sleepSignal);
+        global.disconnect(this._shutdownSignal);
         this._button.menu.disconnect(this._menuSignal);
-        // Keep the draft and any save warning through a Wayland lock/unlock.
-        this._draft = this._entry.get_text();
         this._button.menu.close(PopupAnimation.NONE);
         this._button.destroy();
         this._menuSignal = 0;
         this._settingsSignal = 0;
         this._monitorsSignal = 0;
+        this._sessionSignal = 0;
+        this._sleepSignal = 0;
+        this._shutdownSignal = 0;
+        this._loginManager = null;
+        this._draft = null;
+        this._error = null;
+        this._autoSave = false;
         this._button = null;
         this._entry = null;
         this._scroll = null;

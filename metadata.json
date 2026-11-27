@@ -1,7 +1,7 @@
 {
   "uuid": "note-concat@fregeh",
   "name": "Note Concat",
-  "description": "Capture multiline Markdown notes from the top panel and append them to a local file of your choice.\n\nCustomize the font and editor size, and choose whether to save automatically when the popup closes.",
+  "description": "A minimal GNOME Shell extension for capturing thoughts and appending them to a local Markdown file without losing focus on your current task.\n\nWrite down distracting thoughts instead of acting on them. Return to your current task and review them later.\n\nInspired by distractibility delay and cognitive offloading. Scientific references are available on the extension homepage.",
   "shell-version": [
     "50"
   ],

@@ -42,7 +42,9 @@ Enable **Note Concat** in Extensions. If it does not appear, log out and back in
 
 Click the pencil icon in the top panel to write a note. **Save** or **Ctrl+Enter** appends it to `~/Notes/inbox.md` by default.
 
-The gear button opens settings for the destination, font, editor size and automatic saving. If **Save on close** is disabled, dismissing the popup keeps the draft in memory until you save it.
+The gear button opens settings for the destination, font, editor size and automatic saving. By default, dismissing the popup keeps the draft, while **Save on session end** attempts to append it when locking, suspending or logging out. Enable **Save on popup close** if you prefer to append on every dismissal.
+
+Unsaved drafts are kept privately on your device for recovery after an interrupted session. If a previous save could not be confirmed, check the destination before retrying.
 
 ## License
 

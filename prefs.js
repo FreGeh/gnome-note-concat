@@ -56,11 +56,17 @@ export default class NoteConcatPreferences extends ExtensionPreferences {
         settings.bind('destination', row, 'text', Gio.SettingsBindFlags.DEFAULT);
         group.add(row);
         const saveOnClose = new Adw.SwitchRow({
-            title: 'Save on close',
-            subtitle: 'Turn off to keep the draft in this session until you use Save or Ctrl+Enter.',
+            title: 'Save on popup close',
+            subtitle: 'Append the note whenever the popup is dismissed.',
         });
         settings.bind('save-on-close', saveOnClose, 'active', Gio.SettingsBindFlags.DEFAULT);
         group.add(saveOnClose);
+        const saveOnSessionEnd = new Adw.SwitchRow({
+            title: 'Save on session end',
+            subtitle: 'Append on screen lock, suspend or logout; recover interrupted drafts on return.',
+        });
+        settings.bind('save-on-session-end', saveOnSessionEnd, 'active', Gio.SettingsBindFlags.DEFAULT);
+        group.add(saveOnSessionEnd);
         page.add(group);
 
         const actions = new Adw.PreferencesGroup();

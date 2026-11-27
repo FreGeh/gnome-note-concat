@@ -28,8 +28,12 @@
       <summary>Editor height in logical pixels</summary>
     </key>
     <key name="save-on-close" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Save notes automatically when the popup closes</summary>
+    </key>
+    <key name="save-on-session-end" type="b">
+      <default>true</default>
+      <summary>Save notes automatically when locking, suspending or logging out</summary>
     </key>
   </schema>
 </schemalist>
