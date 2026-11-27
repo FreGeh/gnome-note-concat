@@ -1,0 +1,46 @@
+name: Build submission ZIP
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '*.js'
+      - 'metadata.json'
+      - 'stylesheet.css'
+      - 'LICENSE'
+      - 'schemas/**'
+      - 'tests/**'
+      - '.github/workflows/package.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install GNOME packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gnome-shell gjs libglib2.0-bin unzip
+
+      - name: Run tests
+        run: |
+          gjs -m tests/append.js
+          glib-compile-schemas --strict --dry-run schemas
+
+      - name: Build and inspect submission ZIP
+        run: |
+          gnome-extensions pack --force --extra-source=append.js --extra-source=LICENSE .
+          unzip -t note-concat@fregeh.shell-extension.zip
+          unzip -l note-concat@fregeh.shell-extension.zip
+
+      - name: Upload submission ZIP
+        uses: actions/upload-artifact@v7
+        with:
+          path: note-concat@fregeh.shell-extension.zip
+          archive: false
+          if-no-files-found: error
