@@ -27,6 +27,11 @@
       <default>180</default>
       <summary>Editor height in logical pixels</summary>
     </key>
+    <key name="include-timestamps" type="b">
+      <default>true</default>
+      <summary>Include a local creation timestamp in saved notes</summary>
+      <description>Prefix each note with its local creation time in YYYY-MM-DD HH:MM format.</description>
+    </key>
     <key name="save-on-close" type="b">
       <default>false</default>
       <summary>Save notes automatically when the popup closes</summary>
