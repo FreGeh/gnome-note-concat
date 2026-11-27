@@ -2,7 +2,10 @@
 
 A minimal GNOME Shell 50 extension for capturing thoughts and appending them to a local Markdown file without losing focus on your current task.
 
-<img src="screenshot.png" alt="Note Concat popup editor" width="500">
+<p align="center">
+  <img src="screenshot-app.png" alt="Note Concat popup editor" width="48%">
+  <img src="screenshot-settings.png" alt="Settings popup" width="28%">
+</p>
 
 ## Motivation
 
@@ -40,7 +43,7 @@ Enable **Note Concat** in Extensions. If it does not appear, log out and back in
 
 ## Usage
 
-Click the pencil icon in the top panel to write a note. **Save** or **Ctrl+Enter** appends it to `~/Notes/inbox.md` by default.
+Click the pencil icon in the top panel to write a note. **Save** or **Ctrl+Enter** appends it to `~/Notes/inbox.md` by default (I personally use a note in my Obsidian Vault).
 
 The gear button opens settings for the destination, font, editor size and automatic saving. By default, dismissing the popup keeps the draft, while **Save on session end** attempts to append it when locking, suspending or logging out. Enable **Save on popup close** if you prefer to append on every dismissal.
 
