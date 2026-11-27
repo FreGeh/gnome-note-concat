@@ -4,7 +4,7 @@ A GNOME Shell 50 extension that appends Markdown notes from the top panel to a l
 
 Click the pencil icon to write a note. **Save** or **Ctrl+Enter** appends it to `~/Notes/inbox.md` by default. The gear button opens settings for the destination, font, editor size, and automatic saving. If you turn off **Save on close**, dismissing the popup keeps the draft in memory.
 
-If a save is interrupted, the draft stays in memory. Follow the on-screen message before retrying with **Save**.
+GNOME Shell can disable Note Concat while the screen is locked. The draft and any save warning stay in memory during lock and unlock. Disabling cancels an active save. On re-enable, the editor waits for its outcome before accepting edits. Follow the on-screen message before retrying an interrupted save with **Save**.
 
 ## Build and install
 

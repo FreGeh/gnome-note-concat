@@ -9,7 +9,7 @@ Use a disposable Markdown file.
 - Type multiple lines, including Unicode and Markdown indentation; Enter inserts a newline and does not close.
 - Type/paste a long wrapped note; check caret visibility, selection, arrow keys and vertical scrolling.
 - Close via outside click, panel icon, Escape, Save and Ctrl+Enter; check that each nonblank draft is appended once and the next popup is empty.
-- Reopen immediately after closing; check that a pending save cannot be duplicated.
+- Save a multiline note and reopen immediately. If the save is still pending, check that the editor rejects typing and another Save. Verify the saved note appears exactly once, then type a new draft.
 - Change font size and writing area dimensions in Settings. Close without saving and verify the previous values are retained. Then change them again, click Save Settings and verify the new sizes, top-left caret, wrapping and scrolling.
 - Search for part of an installed font name (for example, `mono` in `DejaVu Sans Mono`). Select a filtered result, click Save Settings, and verify the editor uses it. Select System default and save again to restore the theme font family.
 - Change and save several preferences. Click Reset to Defaults and verify the controls show their defaults. Close without saving and reopen to verify the saved preferences are still present. Reset again and click Save Settings to restore the defaults.

@@ -235,6 +235,7 @@ export default class NoteConcat extends Extension {
             error => error
         );
         this._pendingSave = {cancellable, result};
+        this._renderState();
         this._finishSave(this._pendingSave);
     }
 
@@ -270,6 +271,7 @@ export default class NoteConcat extends Extension {
         this._activation = null;
         if (this._pendingSave) {
             this._pendingSave.cancellable?.cancel();
+            // Keep only the result needed to recover the draft on re-enable.
             this._pendingSave.cancellable = null;
         }
         this._settings.disconnect(this._settingsSignal);
