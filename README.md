@@ -4,7 +4,7 @@ A minimal GNOME Shell 50 extension for capturing thoughts and appending them to 
 
 ## Motivation
 
-Note Concat is inspired by **distractibility delay**, a technique used in cognitive behavioural therapy for ADHD [1], and research on **cognitive offloading** [2].
+Note Concat is inspired by **distractibility delay**, a technique used in cognitive behavioural therapy for ADHD [[1]](https://pmc.ncbi.nlm.nih.gov/articles/PMC3874265/), and research on **cognitive offloading** [[2]](https://doi.org/10.1016/j.tics.2016.07.002).
 
 > Write down distracting thoughts instead of acting on them. Return to your current task and review them later.
 
