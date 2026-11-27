@@ -19,8 +19,7 @@ Note Concat is inspired by **distractibility delay**, a technique used in cognit
 
 ## Installation
 
-**GNOME Extensions:** Link coming soon.
-<!-- Replace with the Note Concat extension page once published. -->
+**GNOME Extensions:** [Install Note Concat](https://extensions.gnome.org/extension/12037/note-concat/)
 
 ### Manual installation
 
