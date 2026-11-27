@@ -2,7 +2,7 @@
 
 A minimal GNOME Shell 50 extension for capturing thoughts and appending them to a local Markdown file without losing focus on your current task.
 
-![Note Concat popup editor](screenshot.png)
+<img src="screenshot.png" alt="Note Concat popup editor" width="500">
 
 ## Motivation
 
