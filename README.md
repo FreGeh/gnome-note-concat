@@ -13,6 +13,10 @@ Note Concat is inspired by **distractibility delay**, a technique used in cognit
 
 > Write down distracting thoughts instead of acting on them. Return to your current task and review them later.
 
+<p align="center">
+  <img src="diagram-usage.svg" alt="usage" width="70%">
+</p>
+
 ## Installation
 
 **GNOME Extensions:** Link coming soon.
