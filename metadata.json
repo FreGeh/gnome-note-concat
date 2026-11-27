@@ -1,7 +1,7 @@
 {
   "uuid": "note-concat@fregeh",
   "name": "Note Concat",
-  "description": "Capture multiline Markdown from the top panel and append it to a local file.",
+  "description": "Capture multiline Markdown notes from the top panel and append them to a local file of your choice.\n\nCustomize the font and editor size, and choose whether to save automatically when the popup closes.",
   "shell-version": [
     "50"
   ],

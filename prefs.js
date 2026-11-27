@@ -27,13 +27,15 @@ export default class NoteConcatPreferences extends ExtensionPreferences {
         });
         fontRow.connect('notify::selected', () => {
             const font = fonts[fontRow.selected];
-            if (font !== undefined)
+            if (font !== undefined && font !== settings.get_string('font-family'))
                 settings.set_string('font-family', font);
         });
         editor.add(fontRow);
+        editor.set_description('The popup shrinks to fit the screen when needed.');
         for (const [key, title, step] of [
             ['font-size', 'Font size (pt)', 1],
-            ['editor-height', 'Writing area height (px)', 10],
+            ['editor-width', 'Writing area width (px)', 1],
+            ['editor-height', 'Writing area height (px)', 1],
         ]) {
             const [, range] = settings.settings_schema.get_key(key).get_range().deepUnpack();
             const [lower, upper] = range.deepUnpack();
@@ -62,14 +64,22 @@ export default class NoteConcatPreferences extends ExtensionPreferences {
         page.add(group);
 
         const actions = new Adw.PreferencesGroup();
+        const buttons = new Gtk.Box({halign: Gtk.Align.END, spacing: 8});
+        const reset = new Gtk.Button({label: 'Reset to Defaults'});
+        reset.connect('clicked', () => {
+            for (const key of settings.settings_schema.list_keys())
+                settings.reset(key);
+            fontRow.selected = fonts.indexOf(settings.get_string('font-family'));
+        });
+        buttons.append(reset);
         const save = new Gtk.Button({
             label: 'Save Settings',
-            halign: Gtk.Align.END,
             css_classes: ['suggested-action'],
         });
         settings.bind_property('has-unapplied', save, 'sensitive', GObject.BindingFlags.SYNC_CREATE);
         save.connect('clicked', () => settings.apply());
-        actions.add(save);
+        buttons.append(save);
+        actions.add(buttons);
         page.add(actions);
         window.add(page);
     }

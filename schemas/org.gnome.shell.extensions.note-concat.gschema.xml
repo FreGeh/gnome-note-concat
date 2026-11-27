@@ -17,10 +17,15 @@
       <default>11</default>
       <summary>Editor font size in points</summary>
     </key>
+    <key name="editor-width" type="i">
+      <range min="160" max="8192"/>
+      <default>360</default>
+      <summary>Editor width in logical pixels</summary>
+    </key>
     <key name="editor-height" type="i">
-      <range min="120" max="480"/>
+      <range min="48" max="8192"/>
       <default>180</default>
-      <summary>Editor height in pixels</summary>
+      <summary>Editor height in logical pixels</summary>
     </key>
     <key name="save-on-close" type="b">
       <default>true</default>

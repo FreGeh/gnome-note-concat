@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 import Pango from 'gi://Pango';
 import St from 'gi://St';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
+import {PopupAnimation} from 'resource:///org/gnome/shell/ui/boxpointer.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
@@ -30,6 +32,7 @@ class NoteEntry extends St.Entry {
 
 export default class NoteConcat extends Extension {
     enable() {
+        this._activation = Symbol();
         this._settings = this.getSettings();
         this._button = new PanelMenu.Button(0, 'Note Concat');
         this._button.add_child(new St.Icon({
@@ -37,7 +40,6 @@ export default class NoteConcat extends Extension {
             style_class: 'system-status-icon',
         }));
         const menu = this._button.menu;
-        menu.box.add_style_class_name('note-concat-popup');
 
         const row = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
         const layout = new St.BoxLayout({vertical: true, x_expand: true, style_class: 'note-concat-layout'});
@@ -95,6 +97,7 @@ export default class NoteConcat extends Extension {
         text.connect('text-changed', () => this._queueLayout());
         text.connect('notify::cursor-position', () => this._queueLayout());
         this._scroll.connect('notify::width', () => this._queueLayout());
+        this._scroll.connect('notify::height', () => this._queueLayout());
         text.connect('key-press-event', (_actor, event) => {
             const key = event.get_key_symbol();
             if ((key === Clutter.KEY_Return || key === Clutter.KEY_KP_Enter) &&
@@ -109,20 +112,27 @@ export default class NoteConcat extends Extension {
         Main.panel.addToStatusArea(this.uuid, this._button);
         this._menuSignal = menu.connect('open-state-changed', (_menu, open) => {
             if (open) {
+                this._updateEditorSize();
                 this._renderState();
-                if (!this._saving)
+                if (!this._pendingSave)
                     this._entry.grab_key_focus();
                 this._queueLayout();
-            } else if (this._settings.get_boolean('save-on-close')) {
+            } else if (!this._error && this._settings.get_boolean('save-on-close')) {
                 this._save();
             }
         });
         this._settingsSignal = this._settings.connect('changed', (_settings, key) => {
-            if (key === 'font-family' || key === 'font-size' || key === 'editor-height')
+            if (key === 'font-family' || key === 'font-size')
                 this._updateEditorStyle();
+            else if (key === 'editor-width' || key === 'editor-height')
+                this._updateEditorSize();
         });
+        this._monitorsSignal = Main.layoutManager.connect('monitors-changed', () => this._updateEditorSize());
         this._updateEditorStyle();
+        this._updateEditorSize();
         this._renderState();
+        if (this._pendingSave)
+            this._finishSave(this._pendingSave);
     }
 
     _updateEditorStyle() {
@@ -134,14 +144,26 @@ export default class NoteConcat extends Extension {
             style += ` font-family: "${escaped}";`;
         }
         this._entry.set_style(style);
-        this._scroll.set_style(`height: ${this._settings.get_int('editor-height')}px;`);
+        this._queueLayout();
+    }
+
+    _updateEditorSize() {
+        const monitor = Main.layoutManager.findMonitorForActor(this._button) ?? Main.layoutManager.primaryMonitor;
+        if (!monitor)
+            return;
+        const workArea = Main.layoutManager.getWorkAreaForMonitor(monitor.index);
+        const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+        // Leave room for menu padding, controls and the save status.
+        const width = Math.min(this._settings.get_int('editor-width'), Math.max(1, Math.floor(workArea.width / scale) - 48));
+        const height = Math.min(this._settings.get_int('editor-height'), Math.max(1, Math.floor(workArea.height / scale) - 112));
+        this._button.menu.box.set_style(`width: ${width}px;`);
+        this._scroll.set_style(`height: ${height}px;`);
         this._queueLayout();
     }
 
     _closeAndSave() {
+        this._save();
         this._button.menu.close();
-        if (!this._settings.get_boolean('save-on-close'))
-            this._save();
     }
 
     _queueLayout() {
@@ -184,15 +206,16 @@ export default class NoteConcat extends Extension {
     _renderState() {
         if (!this._entry)
             return;
-        this._entry.clutter_text.editable = !this._saving;
-        this._saveButton.reactive = !this._saving;
-        this._saveButton.can_focus = !this._saving;
-        this._status.text = this._saving ? 'Saving…' : (this._error ?? '');
+        const saving = Boolean(this._pendingSave);
+        this._entry.clutter_text.editable = !saving;
+        this._saveButton.reactive = !saving;
+        this._saveButton.can_focus = !saving;
+        this._status.text = saving ? 'Saving…' : (this._error ?? '');
         this._status.visible = Boolean(this._status.text);
     }
 
-    async _save() {
-        if (this._saving || !this._entry)
+    _save() {
+        if (this._pendingSave)
             return;
         const note = this._entry.get_text();
         if (!note.trim()) {
@@ -204,45 +227,61 @@ export default class NoteConcat extends Extension {
         }
 
         this._draft = note;
-        this._saving = true;
         this._error = '';
         const destination = this._settings.get_string('destination');
-        this._renderState();
-        try {
-            await appendNote(destination, note);
+        const cancellable = new Gio.Cancellable();
+        const result = appendNote(destination, note, cancellable).then(
+            () => null,
+            error => error
+        );
+        this._pendingSave = {cancellable, result};
+        this._finishSave(this._pendingSave);
+    }
+
+    async _finishSave(operation) {
+        const activation = this._activation;
+        const error = await operation.result;
+        if (this._activation !== activation)
+            return;
+
+        this._pendingSave = null;
+        if (!error) {
             this._draft = '';
-            this._entry?.set_text('');
-        } catch (error) {
-            this._error = error.message || 'Could not save note.';
-            if (this._entry)
-                this._entry.set_text(this._draft);
-            Main.notifyError('Note Concat: note not saved', this._error);
-        } finally {
-            this._saving = false;
-            this._renderState();
-            if (this._button?.menu.isOpen) {
-                this._entry.grab_key_focus();
-                this._queueLayout();
+            this._entry.set_text('');
+        } else {
+            if (error.matches?.(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED)) {
+                this._error = 'Save interrupted. Use Save to retry.';
+            } else {
+                this._error = error.message || 'Could not save note.';
+                Main.notifyError('Note Concat: could not confirm save', this._error);
             }
+        }
+        this._renderState();
+        if (this._button.menu.isOpen) {
+            this._entry.grab_key_focus();
+            this._queueLayout();
         }
     }
 
     disable() {
-        this._settings.disconnect(this._settingsSignal);
-        if (this._button) {
-            this._button.menu.disconnect(this._menuSignal);
-            if (!this._saving) {
-                if (this._button.menu.isOpen && this._settings.get_boolean('save-on-close'))
-                    this._save();
-                else
-                    this._draft = this._entry.get_text();
-            }
-            this._button.destroy();
-        }
         if (this._layoutSource)
             GLib.Source.remove(this._layoutSource);
         this._layoutSource = 0;
+        this._activation = null;
+        if (this._pendingSave) {
+            this._pendingSave.cancellable?.cancel();
+            this._pendingSave.cancellable = null;
+        }
+        this._settings.disconnect(this._settingsSignal);
+        Main.layoutManager.disconnect(this._monitorsSignal);
+        this._button.menu.disconnect(this._menuSignal);
+        // Keep the draft and any save warning through a Wayland lock/unlock.
+        this._draft = this._entry.get_text();
+        this._button.menu.close(PopupAnimation.NONE);
+        this._button.destroy();
         this._menuSignal = 0;
+        this._settingsSignal = 0;
+        this._monitorsSignal = 0;
         this._button = null;
         this._entry = null;
         this._scroll = null;

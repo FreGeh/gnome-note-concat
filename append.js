@@ -28,11 +28,11 @@ export function resolveDestination(path) {
     return path;
 }
 
-async function ensureDirectory(directory) {
+async function ensureDirectory(directory, cancellable) {
     if (!directory)
         return;
     try {
-        await call(directory, 'make_directory', GLib.PRIORITY_DEFAULT, null);
+        await call(directory, 'make_directory', GLib.PRIORITY_DEFAULT, cancellable);
     } catch (error) {
         if (isError(error, Gio.IOErrorEnum.EXISTS))
             return;
@@ -41,34 +41,36 @@ async function ensureDirectory(directory) {
         const parent = directory.get_parent();
         if (!parent)
             throw error;
-        await ensureDirectory(parent);
-        await ensureDirectory(directory);
+        await ensureDirectory(parent, cancellable);
+        await ensureDirectory(directory, cancellable);
     }
 }
 
-export async function appendNote(destination, note) {
+export async function appendNote(destination, note, cancellable = null) {
     if (!note.trim())
         return false;
 
     const file = Gio.File.new_for_path(resolveDestination(destination));
-    await ensureDirectory(file.get_parent());
-    const stream = await call(file, 'append_to', Gio.FileCreateFlags.PRIVATE, GLib.PRIORITY_DEFAULT, null);
+    await ensureDirectory(file.get_parent(), cancellable);
+    const stream = await call(file, 'append_to', Gio.FileCreateFlags.PRIVATE, GLib.PRIORITY_DEFAULT, cancellable);
 
     let attemptedWrite = false;
     try {
-        const info = await call(stream, 'query_info', 'standard::size', GLib.PRIORITY_DEFAULT, null);
+        const info = await call(stream, 'query_info', 'standard::size', GLib.PRIORITY_DEFAULT, cancellable);
         const prefix = info.get_size() > 0 ? '\n\n' : '';
         const bytes = new TextEncoder().encode(prefix + note);
         let offset = 0;
         while (offset < bytes.length) {
+            cancellable?.set_error_if_cancelled();
             attemptedWrite = true;
-            const count = await call(stream, 'write_bytes', new GLib.Bytes(bytes.subarray(offset)), GLib.PRIORITY_DEFAULT, null);
+            const count = await call(stream, 'write_bytes', new GLib.Bytes(bytes.subarray(offset)), GLib.PRIORITY_DEFAULT, cancellable);
             if (count <= 0)
                 throw new Error('No bytes written.');
             offset += count;
         }
     } catch (error) {
         try {
+            // Closing must finish even after cancellation.
             await call(stream, 'close', GLib.PRIORITY_DEFAULT, null);
         } catch {
             // Preserve the original error.

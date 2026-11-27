@@ -2,7 +2,9 @@
 
 A GNOME Shell 50 extension that appends Markdown notes from the top panel to a local file.
 
-Click the pencil icon to write a note. **Save** or **Ctrl+Enter** appends it to `~/Notes/inbox.md` by default. The gear button opens settings for the destination, font, editor height, and automatic saving. If you turn off **Save on close**, dismissing the popup keeps the draft in memory.
+Click the pencil icon to write a note. **Save** or **Ctrl+Enter** appends it to `~/Notes/inbox.md` by default. The gear button opens settings for the destination, font, editor size, and automatic saving. If you turn off **Save on close**, dismissing the popup keeps the draft in memory.
+
+If a save is interrupted, the draft stays in memory. Follow the on-screen message before retrying with **Save**.
 
 ## Build and install
 

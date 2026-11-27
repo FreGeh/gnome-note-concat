@@ -23,6 +23,16 @@ try {
     assert(failed, 'Reject relative path');
     assert(!await appendNote(path, ' \n\t'), 'Ignore blank notes');
     assert(!Gio.File.new_for_path(path).query_exists(null), 'Blank note does not create file');
+    const cancellable = new Gio.Cancellable();
+    const cancelledAppend = appendNote(path, 'Interrupted note', cancellable);
+    cancellable.cancel();
+    try {
+        await cancelledAppend;
+        throw new Error('Append succeeded after cancellation');
+    } catch (error) {
+        assert(error.matches?.(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED), 'Report cancellation before writing');
+    }
+    assert(!Gio.File.new_for_path(path).query_exists(null), 'Cancelled append does not create the file');
     assert(await appendNote(path, '# First\n- grüß dich\n  indented'), 'First append');
     assert(await appendNote(path, 'Second 📝\n\nParagraph'), 'Second append');
     const [, bytes] = Gio.File.new_for_path(path).load_contents(null);
